@@ -275,3 +275,30 @@ Três times, cada um com domínio claro e autonomia real. A consolidação dos s
 **Ações complementares:** documentar Architecture Decision Records (ADRs) antes de qualquer migração, criar runbooks de resposta a incidentes por serviço, e implementar pair programming obrigatório para features críticas de infraestrutura.
 
 ---
+## Seção 6 — Prime Video
+
+A equipe do Prime Video consolidou um pipeline de monitoramento de qualidade de vídeo que havia sido decomposto em microsserviços. O pipeline era sequencial — cada etapa dependia da anterior — e o custo de infraestrutura entre as etapas era desproporcional ao valor entregue. A consolidação em um único processo reduziu custos em 90%.
+
+O análogo direto no StreamFlow é o `analytics-service`. O próprio código do serviço documenta isso:
+
+```js
+// analytics-service/index.js
+// ── ETAPA 1: Coleta (lê DIRETAMENTE do banco do billing) ──
+// ── ETAPA 2: Agregação (depende da etapa 1) ──
+// ── ETAPA 3: Formatação (depende da etapa 2) ──
+// PIPELINE SEQUENCIAL (caso Prime Video)
+```
+
+Não existe nenhum benefício em manter esse pipeline como microsserviço independente. Ele não tem domínio de negócio próprio, não precisa escalar independentemente (relatórios são batch), não pode ser deployado sem coordenação com o billing, e não tem API consumida por outros serviços.
+
+**Outros candidatos:**
+
+| Serviço | Consolidar? | Destino |
+|---|---|---|
+| analytics-service |  Sim — alta prioridade | Módulo interno do billing |
+| notification-service |  Sim — alta prioridade | Evento assíncrono no streaming |
+| recommendation-service |  Opcional | Avaliar no médio prazo |
+
+**Arquitetura final proposta:** gateway, auth, catalog, streaming, recommendation, billing (com analytics interno) — 6 componentes, sem antipatterns de banco compartilhado, sem pipeline sequencial disfarçado de microsserviço.
+
+---
